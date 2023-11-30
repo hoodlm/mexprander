@@ -9,6 +9,7 @@ pub fn expand(expression: String) -> Vec<String> {
 #[derive(PartialEq)]
 enum Token {
     Plus,
+    Multiply,
     Number(i64),
 }
 
@@ -22,6 +23,7 @@ fn tokenize(expression: &str) -> Vec<Token> {
 fn to_token(token_str: &str) -> Token {
     match token_str {
         "+" => Token::Plus,
+        "*" => Token::Multiply,
         n if n.chars().all(|c| c.is_ascii_digit()) => Token::Number(i64::from_str(n).unwrap()),
         x => panic!("Unknown character {}", x),
     }
@@ -57,6 +59,10 @@ fn compile_from_flat_list(tokens: &Vec<Token>) -> Vec<String> {
             },
             CompilerSM::NeedOperator => {
                 match token {
+                    Token::Multiply => {
+                        current_command.push_str(" * ");
+                        state = CompilerSM::NeedRHS;
+                    },
                     Token::Plus => {
                         current_command.push_str(" + ");
                         state = CompilerSM::NeedRHS;
@@ -135,6 +141,19 @@ mod tests {
     }
 
     #[test]
+    fn add_multiply_no_paren() {
+        let input = String::from("6 * 7 + 1");
+        let result = expand(input);
+
+        let mut expected = Vec::new();
+        expected.push("a = 6 * 7");
+        expected.push("b = a + 1");
+        expected.push("b");
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
     fn add_many_no_paren() {
         let input = String::from("100 + 200 + 300 + 1 + 2 + 3 + 4 + 5 + 7 + 4 + 2 + 1");
         let result = expand(input);
@@ -157,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_three_no_paren() {
+    fn tokenize_add_three_no_paren() {
         let input = String::from("1 + 2 + 3");
         let result = tokenize(&input);
 
@@ -172,6 +191,21 @@ mod tests {
     }
 
     #[test]
+    fn tokenize_multiply_three_no_paren() {
+        let input = String::from("4 * 8 * 16");
+        let result = tokenize(&input);
+
+        let mut expected = Vec::new();
+        expected.push(Token::Number(4));
+        expected.push(Token::Multiply);
+        expected.push(Token::Number(8));
+        expected.push(Token::Multiply);
+        expected.push(Token::Number(16));
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
     #[should_panic]
     fn tokenize_with_unknown_symbol() {
         let input = String::from("1 + FOO + 3");
@@ -181,6 +215,11 @@ mod tests {
     #[test]
     fn token_plus_sign() {
         assert_eq!(Token::Plus, to_token("+"));
+    }
+
+    #[test]
+    fn token_multiply_star() {
+        assert_eq!(Token::Multiply, to_token("*"));
     }
 
     #[test]
